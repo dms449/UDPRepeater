@@ -1,0 +1,119 @@
+<RootWidget>:
+    orientation: 'vertical'
+
+    BoxLayout:
+        orientation: 'horizontal'
+
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_x: 0.3
+            cols: 1
+            TextInput:
+                id: name
+                hint_text: 'name'
+                multiline: False
+            TextInput:
+                id: ip
+                hint_text: 'ip'
+                multiline: False
+            TextInput:
+                id: port
+                hint_text: 'port'
+                multiline: False
+            BoxLayout:
+                orientation: 'horizontal'
+                Button:
+                    id: add_connection
+                    text: '+'
+                    font_size: '24sp'
+                    color: (0,1,0,1)
+                    on_release: root.add_connection()
+                Button:
+                    id: delete_connection
+                    text: '-'
+                    font_size: '24sp'
+                    color: (1,0,0,1)
+                    on_release: root.delete_connection()
+
+        TreeView:
+            id: Input_Output
+
+    ActionBar:
+        ActionView:
+            use_separator: True
+            ActionPrevious:
+                with_previous: False
+                ActionButton:
+                    id: On_Off
+                    text: 'Off'
+                    font_size: '20sp'
+                    color: (1,0,0,1)
+                    on_release: root.On_Off()
+
+            ActionOverflow:
+
+            ActionGroup:
+                text: 'Record'
+                ActionButton:
+                    id: start
+                    disabled: True
+                    background_down: 'atlas://data/images/defaulttheme/tab_btn_disabled'
+                    icon: ''
+                    text: 'start'
+                    font_size: '16sp'
+                    on_press: root.start_recording(self)
+
+                ActionButton:
+                    pos_hint_y: 'center'
+                    id: stop
+                    disabled: True
+                    background_down: 'atlas://data/images/defaulttheme/tab_btn_disabled'
+                    icon: ''
+                    text: 'stop'
+                    font_size: '16sp'
+                    on_press: root.stop_recording()
+
+
+
+
+
+<SaveDialog>:
+    text_input: text_input
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            id: filechooser
+            path: root.path
+            on_selection: text_input.text = self.selection and self.selection[0] or ''
+
+        TextInput:
+            id: text_input
+            size_hint_y: None
+            height: 30
+            multiline: False
+
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: "Save"
+                on_press: root.save(filechooser.path, text_input.text)
+            Button:
+                text: "Don't Save"
+                on_press: root.dont_save()
+            Button:
+                text: "Cancel"
+                on_release: root.cancel()
+
+<ErrorDialog>:
+    orientation: 'vertical'
+    Label:
+        text: root.error
+    Button:
+        size_hint_y: .6
+        text: 'ok'
+        on_release: root.cancel()
+
+<TreeViewToggleButton>
