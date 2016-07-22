@@ -1,15 +1,14 @@
 from kivy.config import Config
-Config.set('graphics', 'width', '600')
-Config.set('graphics', 'height', '300')
+Config.set('graphics', 'width', '500')
+Config.set('graphics', 'height', '200')
 
-from kivy.uix.actionbar import ActionBar
+from kivy.uix.actionbar import ActionItem
 from kivy.app import App
 import os.path
 import sys
 import pandas as pd
 from kivy.core.window import Window
-from kivy.uix.textinput import TextInput
-from kivy.uix.togglebutton import ToggleButton
+from kivy.uix.switch import Switch
 from kivy.uix.treeview import TreeViewLabel,TreeView, TreeViewNode
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
@@ -17,13 +16,18 @@ from kivy.properties import StringProperty
 from kivy.properties import ObjectProperty
 from kivy.properties import NumericProperty
 from kivy.uix.popup import Popup
-from kivy.clock import Clock
+
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 
+from threading import Thread
+
+class ActionSwitch(ActionItem,Switch):
+    def __init__(self, **kwargs):
+       super(ActionSwitch, self).__init__()
+
 class TreeViewToggleButton(TreeViewNode):
     pass
-
 
 class SaveDialog(FloatLayout):
     save = ObjectProperty(None)
@@ -84,6 +88,18 @@ class Connection(DatagramProtocol):
         else:
             self.output[name] = address
 
+    def remove_output(self, name):
+        """ Remove the output from the dictionary self.output
+
+        :param name: (string) The name of an output
+        :return:
+        """
+        try:
+            self.output.pop(name)
+        except ValueError:
+            error_msg = "The output '{}' was not listed under this input.".format(name)
+            self.show_error(error_msg)
+
     def datagramReceived(self, data, address):
         """ Pass 'data' on to every address in self.output
 
@@ -95,10 +111,10 @@ class Connection(DatagramProtocol):
             self.transport.write(data, address)
 
 
-
 class ErrorDialog(BoxLayout):
     error = StringProperty(None)
     cancel = ObjectProperty(None)
+
 
 class RootWidget(BoxLayout):
     """
@@ -121,53 +137,47 @@ class RootWidget(BoxLayout):
         self.recording = False
         self.reactor = reactor
         self.inputs = {}
-        self.selected = None
+        self.selected = False
+        self.flag = True
 
-        # chane the TreeView Root Node Label
-        self.ids['Input_Output']._root.text = 'Connections'
-
-        # bind 'validate' method to TextInputs
-        self.ids['name'].bind(on_text_validate=self.validate)
-        self.ids['ip'].bind(on_text_validate=self.validate)
-        self.ids['port'].bind(on_text_validate=self.validate)
-
+        self.ids['On_Off'].bind(active=self.toggle_on_off)
+        self.ids['record'].bind(active=self.toggle_recording)
 
     def _keyboard_closed(self):
         print('My keyboard has been closed!')
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
         self._keyboard = None
 
-    def _on_keyboard_down(self,keyboard,keycode,text,modifiers):
+    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         if keycode == 13: # enter
             self.add_port()
         return True
 
-    def validate(self, instance):
-        # if instance.text in self.relationships or instance.text in self.relationships.values():
-        #     self.show_error('A connection by this name already exists')
-        pass
-
-    def select(self, instance, value):
-        self.selected = instance
+    def select(self, instance, value=False):
+        if value:
+            self.selected = instance
+        else:
+            self.selected = False
 
     def add_connection(self):
-        name = self.ids['name'].text
-        ip = self.ids['ip'].text
-        port = int(self.ids['port'].text)
+        try:
+            name = self.ids['name'].text
+            ip = self.ids['ip'].text
+            port = int(self.ids['port'].text)
+        except ValueError:
+            self.show_error('Please provide a valid value.')
         if not self.selected:
-            self.show_error("You must select a node")
-
-        elif self.selected.text == 'Connections':
+            self.inputs[name] = Connection(name,ip,port)
+            self.ids['Input_Output'].add_node(TreeViewLabel(text=name, on_touch_down=self.select))
+        elif self.selected.parent_node.text == 'Root':
             try:
-                self.inputs[name] = Connection(name, ip, port)
+                self.inputs[self.selected.text].add_output(name,(ip,port))
                 self.ids['Input_Output'].add_node(TreeViewLabel(text=name, on_touch_down=self.select), self.selected)
             except:
                 self.show_error('invalid socket:\n'+str(sys.exc_info()[0]))
 
-        elif self.selected.parent_node.text == 'Connections':
-            self.inputs[name].add_output(name,(ip,port))
-
-
+        else:
+            self.show_error('Cannot add a connection to an output')
 
     def delete_connection(self):
         pass
@@ -178,35 +188,26 @@ class RootWidget(BoxLayout):
     def stop_recording(self):
         pass
 
-    # def add_output(self):
-    #     self.ids['Input_Output'].add_node(TreeViewToggleButton(text='output'),self.n)
-
     # ----------------------- Toggles the repeater on and off -----------------------
     # ------------------------- (Does not include recording) ----------------------
-    def On_Off(self):
+    def toggle_on_off(self, instance, value):
+        if self.flag:
+            for input in self.inputs.values():
+                reactor.listenUDP(input.port, input, interface=input.ip)
+            self.flag = False
+
         if self.running:
             if self.recording:
-                self.show_error('Please stop recording in order to deactivate')
-            else:
-                self.running = False
-                self.ids['On_Off'].color = (1,0,0,1)
-                self.ids['On_Off'].text = 'Off'
-                self.ids['start'].disabled = True
-                self.ids['start'].icon = ''
-                self.ids['stop'].disabled = True
-                self.ids['stop'].icon = ''
-                # ---------- insert reactor stop code here --------
+                self.show_error('Please stop recording first')
+            reactor.stopListening()
+            self.running = False
         else:
+            Thread(target=reactor.run).start()
             self.running = True
-            self.ids['On_Off'].color = (0,1,0,1)
-            self.ids['On_Off'].text = 'On'
-            self.ids['start'].disabled = False
-            self.ids['start'].icon = 'start.png'
-            self.ids['stop'].disabled = False
-            self.ids['stop'].icon = 'stop.png'
-            # ------- insert reactor start code here -----
 
 
+    def toggle_recording(self, instance, value):
+        pass
 
     def show_save(self):
         content = SaveDialog(save=self.save_as, dont_save=self.dont_save,cancel=self.dismiss_popup,path=self._last_path)
@@ -251,23 +252,6 @@ class RootWidget(BoxLayout):
     def dismiss_error(self):
         """ A handle to this function is passed to ErrorDialog during creation in order to close the window."""
         self._error.dismiss()
-
-    def _toggle_play_pause(self):
-        if self.recording:
-            self.ids['start'].icon = 'pause.png'
-            self.ids['start'].text = 'pause'
-        else:
-            self.ids['start'].icon = 'start.png'
-            self.ids['start'].text = 'start'
-
-    def _toggle_add_remove(self):
-        if self.in_select:
-            self.ids['add_connection'].disabled = False
-            self.ids['delete_connection'].disabled = False
-        else:
-            self.ids['add_connection'].disabled = True
-            self.ids['delete_connection'].disabled = True
-
 
 # ===============================  The main App ==============================
 class UDPApp(App):
