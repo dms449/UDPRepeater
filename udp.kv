@@ -15,14 +15,20 @@
                 id: name
                 hint_text: 'name'
                 multiline: False
+                write_tab: False
+                on_text_validate: root.validate_input()
             TextInput:
                 id: ip
                 hint_text: 'ip'
                 multiline: False
+                write_tab: False
+                on_text_validate: root.validate_input()
             TextInput:
                 id: port
                 hint_text: 'port'
                 multiline: False
+                write_tab: False
+                on_text_validate: root.validate_input()
             BoxLayout:
                 orientation: 'horizontal'
                 Button:
@@ -30,7 +36,7 @@
                     text: '+'
                     font_size: '24sp'
                     color: (0,1,0,1)
-                    on_release: root.add_connection()
+                    on_release: root.validate_input()
                 Button:
                     id: delete_connection
                     text: '-'
@@ -38,11 +44,9 @@
                     color: (1,0,0,1)
                     on_release: root.delete_connection()
 
-
-
         TreeView:
             id: Input_Output
-            text: 'hello'
+            hide_root: True
 
     ActionBar:
         ActionView:
@@ -64,6 +68,7 @@
                     text: 'Record'
                 ActionSwitch:
                     id: record
+                    disabled: True
 
 
 
@@ -106,3 +111,13 @@
         text: 'ok'
         on_release: root.cancel()
 
+<MyBubble>
+    size_hint: (None, None)
+    size: (160, 120)
+    pos_hint: {'center_x': .5, 'y': .6}
+    BubbleButton:
+        text: 'Cut'
+    BubbleButton:
+        text: 'Copy'
+    BubbleButton:
+        text: 'Paste'

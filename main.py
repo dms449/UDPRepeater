@@ -8,26 +8,44 @@ import os.path
 import sys
 import pandas as pd
 from kivy.core.window import Window
+from kivy.uix.textinput import TextInput
 from kivy.uix.switch import Switch
 from kivy.uix.treeview import TreeViewLabel,TreeView, TreeViewNode
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.bubble import Bubble,BubbleContent,BubbleButton
 from kivy.properties import StringProperty
 from kivy.properties import ObjectProperty
 from kivy.properties import NumericProperty
 from kivy.uix.popup import Popup
+from kivy.uix.behaviors.focus import FocusBehavior
 
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
+from twisted.internet.error import CannotListenError
 
 from threading import Thread
+
+
+class MyBubble(Bubble):
+    pass
+
+
+class NewTreeViewLabel(TreeViewLabel):
+    def __init__(self,**kwargs):
+        super(NewTreeViewLabel, self).__init__(**kwargs)
+        # self.doubletap = doubletap_func
+
+    def on_touch_down(self, touch):
+        if touch.is_double_tap:
+            self.add_widget(MyBubble())
+        super(NewTreeViewLabel, self).on_touch_down(touch)
+
 
 class ActionSwitch(ActionItem,Switch):
     def __init__(self, **kwargs):
        super(ActionSwitch, self).__init__()
 
-class TreeViewToggleButton(TreeViewNode):
-    pass
 
 class SaveDialog(FloatLayout):
     save = ObjectProperty(None)
@@ -35,22 +53,6 @@ class SaveDialog(FloatLayout):
     text_input = ObjectProperty(None)
     cancel = ObjectProperty(None)
     path = StringProperty(None)
-
-class InSocketVisual(BoxLayout):
-    name = StringProperty(None)
-    ip = StringProperty(None)
-    port = StringProperty(None)
-    remove = ObjectProperty(None)
-    check = ObjectProperty(None)
-    select = ObjectProperty(None)
-    socket = ObjectProperty(None)
-
-class OutSocketVisual(BoxLayout):
-    name = StringProperty(None)
-    ip = StringProperty(None)
-    port = StringProperty(None)
-    remove = ObjectProperty(None)
-    select = ObjectProperty(None)
 
 
 class Connection(DatagramProtocol):
@@ -131,14 +133,18 @@ class RootWidget(BoxLayout):
 
     def __init__(self,**kwargs):
         super(RootWidget,self).__init__(**kwargs)
-        self._keyboard = Window.request_keyboard(self._keyboard_closed, self, 'text')
-        self._keyboard.bind(on_key_down=self._on_keyboard_down)
         self.running = False
         self.recording = False
         self.reactor = reactor
         self.inputs = {}
+        self.nodes = {}
+        self.ports = {}
         self.selected = False
         self.flag = True
+
+        # initialize the keyboard
+        self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+        self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
         self.ids['On_Off'].bind(active=self.toggle_on_off)
         self.ids['record'].bind(active=self.toggle_recording)
@@ -149,9 +155,54 @@ class RootWidget(BoxLayout):
         self._keyboard = None
 
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        if keycode == 13: # enter
-            self.add_port()
+        if keycode[1] == 'w':
+            self.player1.center_y += 10
+        elif keycode[1] == 's':
+            self.player1.center_y -= 10
+        elif keycode[1] == 'up':
+            self.player2.center_y += 10
+        elif keycode[1] == 'down':
+            self.player2.center_y -= 10
         return True
+
+    def validate_input(self, instance=False, value=False):
+        """ Determine if the information provided is valid. If it is, add the connection.
+        Otherwise, alert the user of the error.
+
+        :param instance:
+        :param value:
+        :return:
+        """
+        ADDSOCKET = False
+        name = self.ids['name'].text
+        ip = self.ids['ip'].text
+        port = self.ids['port'].text
+        # try:
+        address = (ip,int(port))
+        # except ValueError:
+        #     self.show_error("invalid port number. Must be an integer.")
+
+        if name == '' or ip == '' or port == '':
+            self.show_error('There is an empty field.')
+        elif name in self.inputs.keys():
+            self.show_error("Error! A connection by this name already exists!")
+        else:
+            if self.inputs:
+                for input in self.inputs.values():
+                    if address == (input.ip,input.port):
+                        self.show_error(str(sys.exc_info()[0]))
+                        break
+                    # elif address in input.output.values():
+                    #     self.show_error("A socket is already using this ip and port.\nPlease try another one.")
+                    else:
+                        ADDSOCKET = True
+            else:
+                ADDSOCKET = True
+
+        if ADDSOCKET:
+            self.add_connection()
+
+
 
     def select(self, instance, value=False):
         if value:
@@ -159,20 +210,28 @@ class RootWidget(BoxLayout):
         else:
             self.selected = False
 
+
     def add_connection(self):
-        try:
-            name = self.ids['name'].text
-            ip = self.ids['ip'].text
-            port = int(self.ids['port'].text)
-        except ValueError:
-            self.show_error('Please provide a valid value.')
+        name = self.ids['name'].text
+        ip = self.ids['ip'].text
+        port = int(self.ids['port'].text)
         if not self.selected:
             self.inputs[name] = Connection(name,ip,port)
-            self.ids['Input_Output'].add_node(TreeViewLabel(text=name, on_touch_down=self.select))
+            try:
+                node = NewTreeViewLabel(text=name, on_touch_down=self.select)
+                port = reactor.listenUDP(port, self.inputs[name], interface=ip)
+                self.ids['Input_Output'].add_node(node)
+                self.nodes[name] = node
+                self.ports[name] = port
+            except CannotListenError:
+                self.show_error('Could not listen on port')
+
         elif self.selected.parent_node.text == 'Root':
             try:
                 self.inputs[self.selected.text].add_output(name,(ip,port))
-                self.ids['Input_Output'].add_node(TreeViewLabel(text=name, on_touch_down=self.select), self.selected)
+                node = NewTreeViewLabel(text=name, on_touch_down=self.select)
+                self.ids['Input_Output'].add_node(node, self.selected)
+                self.nodes[name] = node
             except:
                 self.show_error('invalid socket:\n'+str(sys.exc_info()[0]))
 
@@ -180,7 +239,29 @@ class RootWidget(BoxLayout):
             self.show_error('Cannot add a connection to an output')
 
     def delete_connection(self):
-        pass
+        """ This method handles the deletion of either an input or output node. """
+        if not self.recording and not self.running:
+
+            # Delete an input node
+            if self.selected.parent_node.text == 'Root':
+                name = self.selected.text
+                self.inputs.pop(name)
+                self.ports.pop(name)
+
+                # Remove the node from the TreeView
+                node = self.nodes.pop(name)
+                self.ids['Input_Output'].remove_node(node)
+
+            # Delete and output node
+            elif self.selected.parent_node.parent_node.text == 'Root':
+                name = self.selected.text
+                self.inputs[self.selected.parent_node.text].remove_output(name)
+
+                # Remove the node from the TreeView
+                node = self.nodes.pop(name)
+                self.ids['Input_Output'].remove_node(node)
+        else:
+            self.show_error('You must stop running and recording in order to add/remove connections.')
 
     def start_recording(self):
         pass
@@ -191,20 +272,39 @@ class RootWidget(BoxLayout):
     # ----------------------- Toggles the repeater on and off -----------------------
     # ------------------------- (Does not include recording) ----------------------
     def toggle_on_off(self, instance, value):
+        """ This method toggles whether or not the program is reading the input ports. This
+        includes what is done with the inputs and also affects the recording.
+
+        :param instance: The object calling this method
+        :param value: A value for it
+        :return:
+        """
         if self.flag:
-            for input in self.inputs.values():
-                reactor.listenUDP(input.port, input, interface=input.ip)
-            self.flag = False
-
-        if self.running:
-            if self.recording:
-                self.show_error('Please stop recording first')
-            reactor.stopListening()
-            self.running = False
-        else:
             Thread(target=reactor.run).start()
+            self.ids['record'].disabled = False
+            self.flag = False
             self.running = True
+        else:
+            if self.running:
+                # If the program is recording, warn the user and do not allow it to stop reading
+                #  the ports until the recording has been shut off
+                if self.recording:
+                    self.show_error('Please stop recording first')
 
+                # If the program is not recording, tell each input port to stop reading and set
+                #   the record button so that it cannot but used.
+                else:
+                    for port in self.ports.values():
+                        port.stopReading()
+                    self.ids['record'].disabled = True
+                    self.running = False
+            else:
+                # If the program is not running, tell each input port to start reading and enable the
+                # record switch
+                for port in self.ports.values():
+                    port.startReading()
+                self.ids['record'].disabled = False
+                self.running = True
 
     def toggle_recording(self, instance, value):
         pass
