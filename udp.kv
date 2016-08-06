@@ -3,46 +3,55 @@
 
     BoxLayout:
         orientation: 'horizontal'
-
         BoxLayout:
-            orientation: 'vertical'
             size_hint_x: 0.3
+            canvas.before:
+                Color:
+                    rgba: 1, 1, 1, 0.06
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
 
-            cols: 1
-            padding:2
-
-            TextInput:
-                id: name
-                hint_text: 'name'
-                multiline: False
-                write_tab: False
-                on_text_validate: root.validate_input()
-            TextInput:
-                id: ip
-                hint_text: 'ip'
-                multiline: False
-                write_tab: False
-                on_text_validate: root.validate_input()
-            TextInput:
-                id: port
-                hint_text: 'port'
-                multiline: False
-                write_tab: False
-                on_text_validate: root.validate_input()
             BoxLayout:
-                orientation: 'horizontal'
-                Button:
-                    id: add_connection
-                    text: '+'
-                    font_size: '24sp'
-                    color: (0,1,0,1)
-                    on_release: root.validate_input()
-                Button:
-                    id: delete_connection
-                    text: '-'
-                    font_size: '24sp'
-                    color: (1,0,0,1)
-                    on_release: root.delete_connection()
+                orientation: 'vertical'
+                pos_hint: {'top':1}
+                size_hint: (1, 0.7)
+                padding:2
+                spacing:1
+                minimum_height: 200
+
+                TextInput:
+                    id: name
+                    hint_text: 'name'
+                    multiline: False
+                    write_tab: False
+                    on_text_validate: root.validate_input()
+                TextInput:
+                    id: ip
+                    hint_text: 'ip'
+                    multiline: False
+                    write_tab: False
+                    on_text_validate: root.validate_input()
+                TextInput:
+                    id: port
+                    hint_text: 'port'
+                    multiline: False
+                    write_tab: False
+                    on_text_validate: root.validate_input()
+                BoxLayout:
+                    orientation: 'horizontal'
+                    Button:
+                        id: add_connection
+                        text: '+'
+                        font_size: '24sp'
+                        color: (0,1,0,1)
+                        on_release: root.validate_input()
+                    Button:
+                        id: delete_connection
+                        text: '-'
+                        font_size: '24sp'
+                        color: (1,0,0,1)
+                        on_release: root.delete_connection()
 
         TreeView:
             id: Input_Output
@@ -70,7 +79,6 @@
 <SaveDialog>:
     text_input: text_input
     BoxLayout:
-        size: root.size
         pos: root.pos
         orientation: "vertical"
         FileChooserListView:

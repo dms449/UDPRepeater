@@ -1,6 +1,6 @@
 from kivy.config import Config
 Config.set('graphics', 'width', '500')
-Config.set('graphics', 'height', '200')
+Config.set('graphics', 'height', '300')
 from kivy.uix.actionbar import ActionItem
 from kivy.app import App
 import os.path
@@ -133,7 +133,6 @@ class RootWidget(BoxLayout):
     def __init__(self, **kwargs):
         super(RootWidget, self).__init__(**kwargs)
         self.running = False
-        self.recording = False
         self.reactor = reactor
         self.inputs = {}
         self.ports = {}
@@ -141,13 +140,13 @@ class RootWidget(BoxLayout):
         self.root = self.ids['Input_Output'].get_root()
         self.root.text = "Inputs"
         self.file = None
+        self._last_path = os.getcwd()
 
         # initialize the keyboard
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
         self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
         self.ids['On_Off'].bind(active=self.toggle_on_off)
-        self.ids['record'].bind(active=self.toggle_recording)
 
     #TODO: Reopen keyboard when a text input is not selected
     def _keyboard_closed(self):
@@ -296,18 +295,10 @@ class RootWidget(BoxLayout):
             self.running = True
         else:
             if self.running:
-                # If the program is recording, warn the user and do not allow it to stop reading
-                #  the ports until the recording has been shut off
-                if self.recording:
-                    self.show_error('Please stop recording first')
-
-                # If the program is not recording, tell each input port to stop reading and set
-                #   the record button so that it cannot but used.
-                else:
-                    for port in self.ports.values():
-                        port.stopReading()
-                    self.ids['record'].disabled = True
-                    self.running = False
+                for port in self.ports.values():
+                    port.stopReading()
+                self.ids['record'].disabled = True
+                self.running = False
             else:
                 # If the program is not running, tell each input port to start reading and enable the
                 # record switch
@@ -316,18 +307,11 @@ class RootWidget(BoxLayout):
                 self.ids['record'].disabled = False
                 self.running = True
 
-    def toggle_recording(self, instance, value):
-        if self.recording:
-
-            self.recording = False
-
-        else:
-            self.recording = True
-
     def show_save(self):
-        content = SaveDialog(save=self.save_as, dont_save=self.dont_save, cancel=self.dismiss_popup,path=self._last_path)
-        self._popup = Popup(title="Save file", content=content,
-                            size_hint=(0.9, 0.9))
+        self.get_parent_window().on_resize(800,500)
+        content = SaveDialog(save=self.save_as, dont_save=self.dont_save,
+                             cancel=self.dismiss_popup, path=self._last_path)
+        self._popup = Popup(title="Save file", content=content)
         self._popup.open()
 
     def save_as(self, path, filename):
@@ -340,14 +324,10 @@ class RootWidget(BoxLayout):
             else:
                 self.file.to_csv(path_name)
                 self.file = pd.DataFrame(columns = ['input', 'bytes'])
-                self.recording = False
-                self._toggle_play_icon()
                 self.dismiss_popup()
             self._last_path = path
 
     def dont_save(self):
-        self.recording = False
-        self._toggle_play_pause()
         self.file = pd.DataFrame(columns = ['input', 'bytes'])
         self._popup.dismiss()
 
