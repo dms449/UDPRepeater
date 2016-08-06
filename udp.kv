@@ -46,14 +46,12 @@
 
         TreeView:
             id: Input_Output
-            hide_root: True
 
     ActionBar:
         ActionView:
             use_separator: True
             ActionPrevious:
                 with_previous: False
-
 
             ActionOverflow:
 
@@ -64,12 +62,9 @@
                     id: On_Off
 
             ActionGroup:
-                ActionLabel:
-                    text: 'Record'
-                ActionSwitch:
-                    id: record
-                    disabled: True
-
+                ActionButton:
+                    text: 'Save Recording'
+                    on_release: root.show_save()
 
 
 <SaveDialog>:
@@ -110,14 +105,3 @@
         size_hint_y: .6
         text: 'ok'
         on_release: root.cancel()
-
-<MyBubble>
-    size_hint: (None, None)
-    size: (160, 120)
-    pos_hint: {'center_x': .5, 'y': .6}
-    BubbleButton:
-        text: 'Cut'
-    BubbleButton:
-        text: 'Copy'
-    BubbleButton:
-        text: 'Paste'

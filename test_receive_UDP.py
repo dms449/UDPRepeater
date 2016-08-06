@@ -12,5 +12,5 @@ UDP_IP2 = 'localhost'
 UDP_PORT2 = 5007
 
 # reactor.listenUDP(5005,receiver())
-reactor.listenUDP(UDP_PORT2,receiver())
+reactor.listenUDP(UDP_PORT2, receiver())
 reactor.run()
