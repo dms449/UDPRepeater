@@ -1,6 +1,6 @@
 from kivy.config import Config
 Config.set('graphics', 'width', '500')
-Config.set('graphics', 'height', '300')
+Config.set('graphics', 'height', '200')
 from kivy.uix.actionbar import ActionItem
 from kivy.app import App
 import os.path
@@ -275,7 +275,8 @@ class RootWidget(BoxLayout):
                 self.show_error('If this error is appearing something is very wrong.')
 
     def write_data(self, name, data):
-        self.file.loc[len(self.file)] = [name, data]
+        if self.ids['recording'].active():
+            self.file.loc[len(self.file)] = [name, data]
 
 
     # ----------------------- Toggles the repeater on and off -----------------------
@@ -290,27 +291,26 @@ class RootWidget(BoxLayout):
         """
         if self.flag:
             Thread(target=reactor.run).start()
-            self.ids['record'].disabled = False
+            self.ids['recording'].disabled = False
             self.flag = False
             self.running = True
         else:
             if self.running:
                 for port in self.ports.values():
                     port.stopReading()
-                self.ids['record'].disabled = True
                 self.running = False
+                self.ids['recording'].disabled = True
             else:
                 # If the program is not running, tell each input port to start reading and enable the
                 # record switch
                 for port in self.ports.values():
                     port.startReading()
-                self.ids['record'].disabled = False
                 self.running = True
+                self.ids['recording'].disabled = False
 
     def show_save(self):
         self.get_parent_window().on_resize(800,500)
-        content = SaveDialog(save=self.save_as, dont_save=self.dont_save,
-                             cancel=self.dismiss_popup, path=self._last_path)
+        content = SaveDialog(save=self.save_as, cancel=self.dismiss_popup, path=self._last_path)
         self._popup = Popup(title="Save file", content=content)
         self._popup.open()
 
@@ -327,14 +327,10 @@ class RootWidget(BoxLayout):
                 self.dismiss_popup()
             self._last_path = path
 
-    def dont_save(self):
-        self.file = pd.DataFrame(columns = ['input', 'bytes'])
-        self._popup.dismiss()
-
     def dismiss_popup(self):
         self._popup.dismiss()
 
-    def show_error(self,text):
+    def show_error(self, text):
         """ Handles the creation of an Error pop-up window.
 
         :param text: (string) The text to be displayed on the popup.
@@ -353,7 +349,7 @@ class RootWidget(BoxLayout):
 
 class UDPApp(App):
     def build(self):
-        return RootWidget(width=500,height=300)
+        return RootWidget(width=500, height=300)
 
 if __name__ == "__main__":
     UDPApp().run()

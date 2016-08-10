@@ -4,54 +4,43 @@
     BoxLayout:
         orientation: 'horizontal'
         BoxLayout:
-            size_hint_x: 0.3
-            canvas.before:
-                Color:
-                    rgba: 1, 1, 1, 0.06
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
+            size_hint: (0.3, 1)
+            orientation: 'vertical'
+            padding:2
+            spacing:1
 
+            TextInput:
+                id: name
+                hint_text: 'name'
+                multiline: False
+                write_tab: False
+                on_text_validate: root.validate_input()
+            TextInput:
+                id: ip
+                hint_text: 'ip'
+                multiline: False
+                write_tab: False
+                on_text_validate: root.validate_input()
+            TextInput:
+                id: port
+                hint_text: 'port'
+                multiline: False
+                write_tab: False
+                on_text_validate: root.validate_input()
             BoxLayout:
-                orientation: 'vertical'
-                pos_hint: {'top':1}
-                size_hint: (1, 0.7)
-                padding:2
-                spacing:1
-                minimum_height: 200
-
-                TextInput:
-                    id: name
-                    hint_text: 'name'
-                    multiline: False
-                    write_tab: False
-                    on_text_validate: root.validate_input()
-                TextInput:
-                    id: ip
-                    hint_text: 'ip'
-                    multiline: False
-                    write_tab: False
-                    on_text_validate: root.validate_input()
-                TextInput:
-                    id: port
-                    hint_text: 'port'
-                    multiline: False
-                    write_tab: False
-                    on_text_validate: root.validate_input()
-                BoxLayout:
-                    orientation: 'horizontal'
-                    Button:
-                        id: add_connection
-                        text: '+'
-                        font_size: '24sp'
-                        color: (0,1,0,1)
-                        on_release: root.validate_input()
-                    Button:
-                        id: delete_connection
-                        text: '-'
-                        font_size: '24sp'
-                        color: (1,0,0,1)
-                        on_release: root.delete_connection()
+                orientation: 'horizontal'
+                Button:
+                    id: add_connection
+                    text: '+'
+                    font_size: '24sp'
+                    color: (0,1,0,1)
+                    on_release: root.validate_input()
+                Button:
+                    id: delete_connection
+                    text: '-'
+                    font_size: '24sp'
+                    color: (1,0,0,1)
+                    on_release: root.delete_connection()
 
         TreeView:
             id: Input_Output
@@ -71,8 +60,13 @@
                     id: On_Off
 
             ActionGroup:
+                ActionLabel:
+                    text: 'Recording'
+                ActionSwitch:
+                    id: recording
+                    disabled: True
                 ActionButton:
-                    text: 'Save Recording'
+                    text: 'Save'
                     on_release: root.show_save()
 
 
@@ -98,9 +92,6 @@
             Button:
                 text: "Save"
                 on_press: root.save(filechooser.path, text_input.text)
-            Button:
-                text: "Don't Save"
-                on_press: root.dont_save()
             Button:
                 text: "Cancel"
                 on_release: root.cancel()
