@@ -3,7 +3,7 @@ Config.set('graphics', 'width', '510')
 Config.set('graphics', 'height', '200')
 from kivy.uix.actionbar import ActionItem
 from kivy.app import App
-import os.path
+import os
 import sys
 import pandas as pd
 from kivy.core.window import Window
@@ -13,14 +13,124 @@ from kivy.uix.checkbox import CheckBox
 from kivy.uix.treeview import TreeViewLabel,TreeView, TreeViewNode
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.bubble import Bubble,BubbleContent,BubbleButton
+# from kivy.uix.bubble import Bubble,BubbleContent,BubbleButton
 from kivy.properties import StringProperty, BooleanProperty, ObjectProperty, NumericProperty
 from kivy.uix.popup import Popup
-from kivy.uix.button import Button
+# from kivy.uix.button import Button
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from twisted.internet.error import CannotListenError
 from threading import Thread
+from kivy.app import Builder
+
+
+Builder.load_string( """<RootWidget>:
+    orientation: 'vertical'
+
+    BoxLayout:
+        orientation: 'horizontal'
+        BoxLayout:
+            size_hint: (0.3, 1)
+            orientation: 'vertical'
+            padding:2
+            spacing:1
+
+            TextInput:
+                id: name
+                hint_text: 'name'
+                multiline: False
+                write_tab: False
+                on_text_validate: root.validate_input()
+            TextInput:
+                id: ip
+                hint_text: 'ip'
+                multiline: False
+                write_tab: False
+                on_text_validate: root.validate_input()
+            TextInput:
+                id: port
+                hint_text: 'port'
+                multiline: False
+                write_tab: False
+                on_text_validate: root.validate_input()
+            BoxLayout:
+                orientation: 'horizontal'
+                Button:
+                    id: add_connection
+                    text: '+'
+                    font_size: '24sp'
+                    color: (0,1,0,1)
+                    on_release: root.validate_input()
+                Button:
+                    id: delete_connection
+                    text: '-'
+                    font_size: '24sp'
+                    color: (1,0,0,1)
+                    on_release: root.delete_connection()
+
+        TreeView:
+            id: Input_Output
+
+    ActionBar:
+        ActionView:
+            use_separator: True
+            ActionPrevious:
+                with_previous: False
+
+            ActionOverflow:
+
+            ActionGroup:
+                ActionLabel:
+                    text: 'Rx/Tx'
+                ActionSwitch:
+                    id: On_Off
+
+            ActionGroup:
+                ActionLabel:
+                    text: 'Recording'
+                ActionSwitch:
+                    id: recording
+                    disabled: True
+                ActionButton:
+                    text: 'Save'
+                    on_release: root.show_save()
+
+
+<SaveDialog>:
+    text_input: text_input
+    BoxLayout:
+        pos: root.pos
+        orientation: "vertical"
+        FileChooserListView:
+            id: filechooser
+            path: root.path
+            on_selection: text_input.text = self.selection and self.selection[0] or ''
+
+        TextInput:
+            id: text_input
+            size_hint_y: None
+            height: 30
+            multiline: False
+
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: "Save"
+                on_press: root.save(filechooser.path, text_input.text)
+            Button:
+                text: "Cancel"
+                on_release: root.cancel()
+
+<ErrorDialog>:
+    orientation: 'vertical'
+    Label:
+        text: root.error
+    Button:
+        size_hint_y: .6
+        text: 'ok'
+        on_release: root.cancel()
+""")
 
 class ActionSwitch(ActionItem,Switch):
     def __init__(self, **kwargs):
@@ -139,7 +249,7 @@ class RootWidget(BoxLayout):
         self.root = self.ids['Input_Output'].get_root()
         self.root.text = "Inputs"
         self.file = pd.DataFrame(columns = ['input', 'bytes'])
-        self._last_path = os.getcwd()
+        # self._last_path = os.getcwd()
 
         # initialize the keyboard
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
@@ -308,7 +418,6 @@ class RootWidget(BoxLayout):
                 self.ids['recording'].disabled = False
 
     def show_save(self):
-        self.get_parent_window().on_resize(800,500)
         content = SaveDialog(save=self.save_as, cancel=self.dismiss_popup, path=self._last_path)
         self._popup = Popup(title="Save file", content=content)
         self._popup.open()
@@ -325,6 +434,7 @@ class RootWidget(BoxLayout):
                 self.file = pd.DataFrame(columns = ['input', 'bytes'])
                 self.dismiss_popup()
             self._last_path = path
+
 
     def dismiss_popup(self):
         self._popup.dismiss()
