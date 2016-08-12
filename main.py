@@ -1,5 +1,5 @@
 from kivy.config import Config
-Config.set('graphics', 'width', '500')
+Config.set('graphics', 'width', '510')
 Config.set('graphics', 'height', '200')
 from kivy.uix.actionbar import ActionItem
 from kivy.app import App
@@ -21,7 +21,6 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from twisted.internet.error import CannotListenError
 from threading import Thread
-
 
 class ActionSwitch(ActionItem,Switch):
     def __init__(self, **kwargs):
@@ -139,7 +138,7 @@ class RootWidget(BoxLayout):
         self.flag = True
         self.root = self.ids['Input_Output'].get_root()
         self.root.text = "Inputs"
-        self.file = None
+        self.file = pd.DataFrame(columns = ['input', 'bytes'])
         self._last_path = os.getcwd()
 
         # initialize the keyboard
@@ -275,7 +274,7 @@ class RootWidget(BoxLayout):
                 self.show_error('If this error is appearing something is very wrong.')
 
     def write_data(self, name, data):
-        if self.ids['recording'].active():
+        if self.ids['recording'].active:
             self.file.loc[len(self.file)] = [name, data]
 
 
@@ -290,7 +289,7 @@ class RootWidget(BoxLayout):
         :return:
         """
         if self.flag:
-            Thread(target=reactor.run).start()
+            self.thread = Thread(target=reactor.run, daemon=True).start()
             self.ids['recording'].disabled = False
             self.flag = False
             self.running = True
@@ -344,9 +343,8 @@ class RootWidget(BoxLayout):
         """ A handle to this function is passed to ErrorDialog during creation in order to close the window."""
         self._error.dismiss()
 
+
 # ===============================  The main App ==============================
-
-
 class UDPApp(App):
     def build(self):
         return RootWidget(width=500, height=300)
