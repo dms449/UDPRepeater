@@ -24,7 +24,7 @@ from threading import Thread
 from kivy.app import Builder
 
 
-Builder.load_string( """<RootWidget>:
+Builder.load_string("""<RootWidget>:
     orientation: 'vertical'
 
     BoxLayout:
@@ -132,7 +132,8 @@ Builder.load_string( """<RootWidget>:
         on_release: root.cancel()
 """)
 
-class ActionSwitch(ActionItem,Switch):
+
+class ActionSwitch(ActionItem, Switch):
     def __init__(self, **kwargs):
         super(ActionSwitch, self).__init__()
 
@@ -147,6 +148,14 @@ class SaveDialog(FloatLayout):
 
 class OutputConnection(BoxLayout, TreeViewLabel):
     def __init__(self, name, ip, port):
+        """ This class is a widget used to display an output connection. It also acts as a base class for
+        the InputConnection class.
+
+        :param name: (str) The name for this connection given by the user.
+        :param ip: (str) The ip address
+        :param port: (int) The port
+        :return:
+        """
         super(OutputConnection, self).__init__()
         self.orientation = 'horizontal'
         self.size = (200, 30)
@@ -177,6 +186,14 @@ class InputConnection(DatagramProtocol, OutputConnection):
     """ This class reads data from a UDP port and then passes it on to each address in 'self.output'. """
 
     def __init__(self, name, ip, port, write_to_file):
+        """ Initialize the base classes and add a checkbox to the gui for recording status.
+
+        :param name: - see baseclass 'OutputConnection'...
+        :param ip: - see baseclass 'OutputConnection'...
+        :param port: - see baseclass 'OutputConnection'...
+        :param write_to_file: (callable) The function called to write data to the .csv file kept in the root widget.
+        :return:
+        """
         DatagramProtocol.__init__(self)
         OutputConnection.__init__(self, name, ip, port)
 
@@ -230,14 +247,13 @@ class InputConnection(DatagramProtocol, OutputConnection):
 
 
 class ErrorDialog(BoxLayout):
+    """ A simple Dialog box for displaying errors"""
     error = StringProperty(None)
     cancel = ObjectProperty(None)
 
 
 class RootWidget(BoxLayout):
-    """
-    Root Widget for the App
-    """
+    """ Root Widget for the App."""
 
     def __init__(self, **kwargs):
         super(RootWidget, self).__init__(**kwargs)
@@ -247,9 +263,11 @@ class RootWidget(BoxLayout):
         self.ports = {}
         self.flag = True
         self.root = self.ids['Input_Output'].get_root()
+        self.ids['name'].bind(focus = self.on_focus)
+        self.ids['ip'].bind(focus = self.on_focus)
+        self.ids['port'].bind(focus = self.on_focus)
         self.root.text = "Inputs"
         self.file = pd.DataFrame(columns = ['input', 'bytes'])
-        # self._last_path = os.getcwd()
 
         # initialize the keyboard
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
@@ -259,9 +277,16 @@ class RootWidget(BoxLayout):
 
     #TODO: Reopen keyboard when a text input is not selected
     def _keyboard_closed(self):
-        print('My keyboard has been closed!')
+        """ """
+        # print('My keyboard has been closed!')
         self._keyboard.unbind(on_key_down=self._on_keyboard_down)
         self._keyboard = None
+
+    def on_focus(self, instance, value):
+        """ Whenever the focus shifts away from a text input, re-request the keyboard."""
+        if not value:
+            self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+            self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
     #TODO: Allow the 'delete' key to be used to remove node
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
@@ -273,17 +298,11 @@ class RootWidget(BoxLayout):
         :param modifiers:
         :return:
         """
-        if keycode[1] == 'w':
-            self.player1.center_y += 10
-        elif keycode[1] == 's':
-            self.player1.center_y -= 10
-        elif keycode[1] == 'up':
-            self.player2.center_y += 10
-        elif keycode[1] == 'down':
-            self.player2.center_y -= 10
-        return True
+        if keycode[1] == 'delete':
+            if self.ids['Input_Output'].get_selected_node():
+                self.delete_connection()
 
-    #TODO: consider if necessary and think of more potential problems
+    #TODO: Instead of looping over connections, build lists and check for equality
     def validate_input(self, instance=False, value=False):
         """ Determine if the information provided is valid. If it is, add the connection.
         Otherwise, alert the user of the error.
@@ -306,8 +325,8 @@ class RootWidget(BoxLayout):
                 address = (ip, int(port))
                 if self.inputs:
                     for input in self.inputs.values():
-                        if address == (input.ip,input.port):
-                            self.show_error(str(sys.exc_info()[0]))
+                        if address == (input.ip, input.port):
+                            self.show_error("A socket with this address already exists.")
                             break
                         else:
                             ADDSOCKET = True
@@ -321,6 +340,7 @@ class RootWidget(BoxLayout):
             self.add_connection()
 
     def add_connection(self):
+        """ Add either an input or output socket connection."""
         name = self.ids['name'].text
         ip = self.ids['ip'].text
         port = int(self.ids['port'].text)
@@ -357,7 +377,7 @@ class RootWidget(BoxLayout):
             self.show_error('Cannot add a connection to an output')
 
     def delete_connection(self):
-        """ This method handles the deletion of either an input or output node. """
+        """ Remove either an input or output connection."""
         # Get the current selected node.
         current_node = self.ids['Input_Output'].get_selected_node()
 
@@ -384,12 +404,10 @@ class RootWidget(BoxLayout):
                 self.show_error('If this error is appearing something is very wrong.')
 
     def write_data(self, name, data):
+        """ Appends the bytes in a new row in 'self.file'. This is called from an InputConnection object."""
         if self.ids['recording'].active:
             self.file.loc[len(self.file)] = [name, data]
 
-
-    # ----------------------- Toggles the repeater on and off -----------------------
-    # ------------------------- (Does not include recording) ----------------------
     def toggle_on_off(self, instance, value):
         """ This method toggles whether or not the program is reading the input ports. This
         includes what is done with the inputs and also affects the recording.
@@ -418,11 +436,19 @@ class RootWidget(BoxLayout):
                 self.ids['recording'].disabled = False
 
     def show_save(self):
+        """ Create and display the save popup. The popup will only be as large as the window, so if the window is small
+        the popup will be small. In order to see the popup more fully, simply expnd the window manually. """
         content = SaveDialog(save=self.save_as, cancel=self.dismiss_popup, path=self._last_path)
         self._popup = Popup(title="Save file", content=content)
         self._popup.open()
 
     def save_as(self, path, filename):
+        """ Checks for errors and attempts to save the dataframe as a *.csv file.
+
+        :param path:
+        :param filename:
+        :return:
+        """
         if filename == '':
             self.show_error('Please enter a valid name')
         else:
@@ -435,8 +461,8 @@ class RootWidget(BoxLayout):
                 self.dismiss_popup()
             self._last_path = path
 
-
     def dismiss_popup(self):
+        """ Dismiss the current popup."""
         self._popup.dismiss()
 
     def show_error(self, text):
