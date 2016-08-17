@@ -1,2 +1,5 @@
-idea/*
+*.pyc
+*.kml
+*.xml
+/.idea
 
