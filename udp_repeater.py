@@ -10,10 +10,10 @@ from kivy.core.window import Window
 from kivy.uix.label import Label
 from kivy.uix.switch import Switch
 from kivy.uix.checkbox import CheckBox
-from kivy.uix.treeview import TreeViewLabel,TreeView, TreeViewNode
+from kivy.uix.treeview import TreeViewLabel, TreeView, TreeViewNode
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.togglebutton import ToggleButton
+from kivy.uix.textinput import TextInput
 from kivy.properties import StringProperty, BooleanProperty, ObjectProperty, NumericProperty
 from kivy.uix.popup import Popup
 from twisted.internet.protocol import DatagramProtocol
@@ -21,6 +21,8 @@ from twisted.internet import reactor
 from twisted.internet.error import CannotListenError
 from threading import Thread
 from kivy.app import Builder
+import re
+import socket
 
 
 Builder.load_string("""<RootWidget>:
@@ -38,19 +40,20 @@ Builder.load_string("""<RootWidget>:
                 hint_text: 'name'
                 multiline: False
                 write_tab: False
-                on_text_validate: root.validate_input()
+
             TextInput:
                 id: ip
                 hint_text: 'ip'
                 multiline: False
                 write_tab: False
-                on_text_validate: root.validate_input()
+
             TextInput:
                 id: port
                 hint_text: 'port'
                 multiline: False
                 write_tab: False
-                on_text_validate: root.validate_input()
+                input_filter: 'int'
+
             BoxLayout:
                 orientation: 'horizontal'
                 Button:
@@ -58,7 +61,8 @@ Builder.load_string("""<RootWidget>:
                     text: '+'
                     font_size: '24sp'
                     color: (0,1,0,1)
-                    on_release: root.validate_input()
+                    on_release: root.validate_input(self, self.text)
+
                 Button:
                     id: delete_connection
                     text: '-'
@@ -126,6 +130,7 @@ Builder.load_string("""<RootWidget>:
         size_hint_y: .6
         text: 'ok'
         on_release: root.cancel()
+
 """)
 
 
@@ -259,14 +264,15 @@ class RootWidget(BoxLayout):
         self.ports = {}
         self.flag = True
         self.root = self.ids['Input_Output'].get_root()
-        self.ids['name'].bind(focus = self.on_focus)
-        self.ids['ip'].bind(focus = self.on_focus)
-        self.ids['port'].bind(focus = self.on_focus)
+        self.ids['name'].bind(focus=self.on_focus)
+        self.ids['ip'].bind(focus=self.on_focus)
+        self.ids['port'].bind(focus=self.on_focus)
         self.root.text = "Inputs"
         self.file = None  # place holder for what will become a file
         self.csv_writer = None  # place holder for what will become a csv writer
         self._popup = False  # place holder for what will become a popup
         self._last_path = os.getcwd()
+        self.ip_pattern = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
 
         # initialize the keyboard
         self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
@@ -319,7 +325,11 @@ class RootWidget(BoxLayout):
         if name == '' or ip == '' or port == '':
             self.show_error('There is an empty field.')
         elif name in self.inputs.keys():
-            self.show_error("Error! A connection by this name already exists!")
+            self.show_error("Error! An input connection by this name already exists!")
+        elif self.ip_pattern.match(ip) is None:
+            self.show_error("IP address invalid format")
+        elif int(port) < 1023 or int(port) > 65535:
+            self.show_error("Port must be a value between 1023 - 65535")
         else:
             try:
                 address = (ip, int(port))
@@ -354,11 +364,11 @@ class RootWidget(BoxLayout):
         # If the selected node is the root node, we are adding an input
         if current_node is self.root:
             node = InputConnection(name, ip, port, self.write_data)
-            self.inputs[name] = node
             try:
-                port = reactor.listenUDP(port, self.inputs[name], interface=ip)
+                port = reactor.listenUDP(port, node, interface=ip)
                 self.ids['Input_Output'].add_node(node)
                 self.ports[name] = port
+                self.inputs[name] = node
             except CannotListenError:
                 self.show_error('Could not listen on port')
 
