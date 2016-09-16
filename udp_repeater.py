@@ -22,7 +22,7 @@ from twisted.internet.error import CannotListenError
 from threading import Thread
 from kivy.app import Builder
 import re
-import socket
+import binascii
 
 
 Builder.load_string("""<RootWidget>:
@@ -40,12 +40,14 @@ Builder.load_string("""<RootWidget>:
                 hint_text: 'name'
                 multiline: False
                 write_tab: False
+                on_text_validate: root.validate_input(self, self.text)
 
             TextInput:
                 id: ip
                 hint_text: 'ip'
                 multiline: False
                 write_tab: False
+                on_text_validate: root.validate_input(self, self.text)
 
             TextInput:
                 id: port
@@ -53,6 +55,7 @@ Builder.load_string("""<RootWidget>:
                 multiline: False
                 write_tab: False
                 input_filter: 'int'
+                on_text_validate: root.validate_input(self, self.text)
 
             BoxLayout:
                 orientation: 'horizontal'
@@ -296,7 +299,14 @@ class RootWidget(BoxLayout):
 
     #TODO: Allow the 'delete' key to be used to remove node
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
-        """ Define actions to take on keypresses from the keyboard.
+        """ Define actions to take on keypresses from t
+
+
+
+
+
+
+he keyboard.
 
         :param keyboard:
         :param keycode:
@@ -416,7 +426,8 @@ class RootWidget(BoxLayout):
     def write_data(self, name, data):
         """ Appends the bytes in a new row in 'self.file'. This is called from an InputConnection object."""
         if self.ids['recording'].active and not self._popup:
-            self.csv_writer.writerow([name, data])
+            byte_data = str(binascii.hexlify(data))
+            self.csv_writer.writerow([name, byte_data[2:-1]])
 
     def toggle_on_off(self, instance, value):
         """ This method toggles whether or not the program is reading the input ports. This
@@ -450,7 +461,8 @@ class RootWidget(BoxLayout):
         if value:
             self.show_save()
         else:
-            self.file.close()
+            if self.file is not None:
+                self.file.close()
 
     def show_save(self):
         """ Create and display the save popup. The popup will only be as large as the window, so if the window is small
@@ -474,9 +486,8 @@ class RootWidget(BoxLayout):
                 self.show_error('a file by this name already exists.')
             else:
                 self.file = open(path_name, 'a')
-                self.csv_writer = csv.writer(self.file)
-                # self.file.to_csv(path_name)
-                # self.file = pd.DataFrame(columns = ['input', 'bytes'])
+                self.csv_writer = csv.writer(self.file, lineterminator='\n')
+                self.csv_writer.writerow(['input', 'hex'])
                 self.dismiss_popup()
             self._last_path = path
 
